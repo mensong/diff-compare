@@ -29,11 +29,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/mman.h>
+#include "mman.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include "unistd.h"
 #include <errno.h>
 
 #ifndef FALSE
@@ -53,10 +53,10 @@ static char *connect(char *filename, int *fd, off_t *flen, int *eflag) {
   char *conad;
   /* If file is not mappable we could read it into memory instead.  Maybe later. */
   *eflag = 0;
-  *fd = open(filename, O_RDONLY, 0);
+  *fd = _open(filename, O_RDONLY, 0);
   if (*fd == -1) { fprintf(stderr, "failed to open input file \"%s\" - %s\n", filename, strerror(errno)); exit(EXIT_FAILURE); }
-  *flen = lseek(*fd, (off_t)0, SEEK_END); lseek(*fd, (off_t)0, SEEK_SET);
-  conad = mmap(NULL, *flen, PROT_READ, MAP_PRIVATE, *fd, (off_t)0);
+  *flen = _lseek(*fd, (off_t)0, SEEK_END); _lseek(*fd, (off_t)0, SEEK_SET);
+  conad = (char*)mmap(NULL, *flen, PROT_READ, MAP_PRIVATE, *fd, (off_t)0);
   if ((int)conad == -1) { fprintf(stderr, "failed to map input file \"%s\" - %s\n", filename, strerror(errno)); exit(EXIT_FAILURE); }
   return conad;
 }
@@ -69,7 +69,7 @@ static void disconnect(char *filename, char *conad, int fd, off_t flen, int *efl
     fprintf(stderr, "failed to unmap input file \"%s\" of length %ld at %p - %s\n", filename, (long)flen, conad, strerror(errno)); exit(EXIT_FAILURE);
   } else {
     // flen = lseek(fd, (off_t)0, SEEK_END);
-    close(fd);
+    _close(fd);
   }
 }
 
@@ -173,20 +173,20 @@ static off_t Aflen, Bflen;
     exit(EXIT_SUCCESS);
   }
 
-  File[A] = strdup(argv[1]); File[B] = strdup(argv[2]);  // Sorry, no clever options supported.
+  File[A] = _strdup(argv[1]); File[B] = _strdup(argv[2]);  // Sorry, no clever options supported.
 
   Aconad = connect(File[A], &Afd, &Aflen, &flag);
   Bconad = connect(File[B], &Bfd, &Bflen, &flag);
   
   /* lazy hack! */
-  while (strlen(File[A]) < strlen(File[B])) {File[A] = realloc(File[A], strlen(File[A])+2); strcat(File[A], " ");}
-  while (strlen(File[B]) < strlen(File[A])) {File[B] = realloc(File[B], strlen(File[B])+2); strcat(File[B], " ");}
+  while (strlen(File[A]) < strlen(File[B])) {File[A] = (char*)realloc(File[A], strlen(File[A])+2); strcat(File[A], " ");}
+  while (strlen(File[B]) < strlen(File[A])) {File[B] = (char*)realloc(File[B], strlen(File[B])+2); strcat(File[B], " ");}
   
   Alines = 0; Blines = 0;
   for (p = Aconad; p < Aconad+Aflen; p++) if (*p == '\n') Alines++;
   for (p = Bconad; p < Bconad+Bflen; p++) if (*p == '\n') Blines++;
-  AA = calloc(Alines+1, sizeof(char *));
-  BB = calloc(Blines+1, sizeof(char *));
+  AA = (char**)calloc(Alines+1, sizeof(char *));
+  BB = (char**)calloc(Blines+1, sizeof(char *));
   if (AA == NULL || BB == NULL) {
     fprintf(stderr, "* Internal error: insufficient RAM available to store pointers to every line.\n");
     exit(EXIT_FAILURE);
